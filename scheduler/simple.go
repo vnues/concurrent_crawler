@@ -1,11 +1,10 @@
 package scheduler
 
-import  ("../engine"
-	"time"
+import (
+	"../engine"
 )
 
 
-var timeLimit =time.Tick(10*time.Millisecond)
 
 //实现interface接口
 
