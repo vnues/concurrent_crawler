@@ -148,6 +148,7 @@ func (s *SimpleScheduler) ConfigureMasterWorkerChan(c chan engine.Request){
 ![](./3.png)
 
 **将worker和rquest放进去队列，request队列有request并且存在worker队列有worker就发给worker,注意这里的worker队列就是in channel队列相当于映射,你可以理解成每个对应的in channel都有自己对应都worker事实上就是**
+> 而不是我们worker队列我们就把createWorker这个函数方法放进去队列，这里每个in都有对应的channel所以作为一个映射
 ```go
 //创建两个队列用来存request和worker
 		var requestQ []engine.Request //request队列
@@ -205,6 +206,8 @@ func (s *QueuedScheduler)WorkerReady(w chan engine.Request){
 - 静态语言的指针是个好东西，你只要拿到它就可以拿到对应的变量值，不管这个变量的作用域，所以go语言中引用类型其实就是一个指针，比如channel类型，我们传递过去，然后再往这个channel输入request,这样我们这个request就可以跨越很多包都可以拿到
 
 - struct成员如果是channel类型我们需要自己去手动开辟内存，这与我们的javascript是不一样的，因为我们js中拿到对象成员就是a.b
+
+-  channel是引用类型（相当于全局那样，不用管作用域，得益于指针） 而且管道可以存东西 存变量 可以把这个变量通过channel进行传递
 ```go
 func (s *QueuedScheduler)Run(){
 /*
