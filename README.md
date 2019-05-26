@@ -148,6 +148,7 @@ func (s *SimpleScheduler) ConfigureMasterWorkerChan(c chan engine.Request){
 ![](./3.png)
 
 **将worker和rquest放进去队列，request队列有request并且存在worker队列有worker就发给worker,注意这里的worker队列就是in channel队列相当于映射,你可以理解成每个对应的in channel都有自己对应都worker事实上就是**
+> 而不是我们worker队列我们就把createWorker这个函数方法放进去队列，这里每个in都有对应的channel所以作为一个映射
 ```go
 //创建两个队列用来存request和worker
 		var requestQ []engine.Request //request队列
