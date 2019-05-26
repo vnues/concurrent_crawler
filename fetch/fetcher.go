@@ -10,12 +10,13 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
 	_"time"
 )
 
 //声明函数需要参数名 返回的=需要声明类型 error是全局类型
 //<-channel类型
-//var rateLimter = time.Tick(40 * time.Millisecond)
+var rateLimter = time.Tick(40 * time.Millisecond)
 
 /*
 func Tick(d Duration) <-chan Time {
@@ -28,7 +29,7 @@ func Tick(d Duration) <-chan Time {
 //间断器利用的就是阻塞
 func Fetcher(url string)([]byte,error){
 	//有数据拿就走通
-	//<-rateLimter
+	<-rateLimter
 	//   resp,err:=http.Get(url)
 	//   //假设网址没有不能存在根本就没有请求
 	//   if err !=nil{
