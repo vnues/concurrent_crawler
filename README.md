@@ -141,4 +141,114 @@ func (s *SimpleScheduler) ConfigureMasterWorkerChan(c chan engine.Request){
 	    }
 ```
 
+## 进阶
 
+>我们希望多个worker不想去抢一个in channel里面的request而是每个worker都有属于自己的in channel
+
+![](./3.png)
+
+**将worker和rquest放进去队列，request队列有request并且存在worker队列有worker就发给worker,注意这里的worker队列就是in channel队列相当于映射,你可以理解成每个对应的in channel都有自己对应都worker事实上就是**
+```go
+//创建两个队列用来存request和worker
+		var requestQ []engine.Request //request队列
+		var workerQ [] chan engine.Request
+
+func createWorker(s Scheduler,out chan ParseResult){
+	//创建in 每创建一个worker就有对应的in
+	in :=make(chan Request)
+	go func(){
+		 for{
+		 	//将in送进去workChan workChan这个变量是channel类型是运输in管道 in管道是放request
+			 s.WorkerReady(in)
+			 request := <-in
+			 parseResult,err:=worker(request)
+			 if err!=nil{
+                 continue
+			 }
+			 out<-parseResult
+		 }
+	}()
+
+}
+```
+**创建两个channel requestChan的管道是用来存放request种子的 而worker是存放request类型的channel,也就是我们再进一步通过这个管道输入输出request**
+```go
+type QueuedScheduler struct {
+	requestChan chan engine.Request //这个channel用来放种子
+	//workChan是chan类型 channel管道存放的类型是 chan engine.Request 所以有关workChan输入输出的操作，类型需要chan engine.Request
+	workChan chan chan engine.Request //这个channel用来存放包含种子的通道
+   
+}
+```
+**为什么是workChan chan chan engine.Request，因为我们传过去in的是channel request类型 所以这个workChan存的还是管道类型，而这个管道就是为了接到request->worker**
+```go
+func (s *QueuedScheduler)WorkerReady(w chan engine.Request){
+     //这个是创建一个可以接收种子的worker,需要放进去worker队列
+	s.workChan <-w
+}
+```
+**问题应该这样问，为什么QueuedScheduler的成员是两个channel类型？**
+
+channel管道里面有着我们所需要的request我们通过goroutine去拿到，channel是goroutine通信的管道的
+
+### 关于WorkerReady
+>作用是这个方法是告诉我们有一个worker准备好了 可以加入去worker队列
+```go
+func (s *QueuedScheduler)WorkerReady(w chan engine.Request){
+     //这个是创建一个可以接收种子的worker,需要放进去worker队列
+	s.workChan <-w
+}
+```
+
+## 总结
+
+- 静态语言的指针是个好东西，你只要拿到它就可以拿到对应的变量值，不管这个变量的作用域，所以go语言中引用类型其实就是一个指针，比如channel类型，我们传递过去，然后再往这个channel输入request,这样我们这个request就可以跨越很多包都可以拿到
+
+- struct成员如果是channel类型我们需要自己去手动开辟内存，这与我们的javascript是不一样的，因为我们js中拿到对象成员就是a.b
+```go
+func (s *QueuedScheduler)Run(){
+/*
+	fmt.Printf("----:%v",s.workChan)//nil
+	s.workChan=make(chan  chan engine.Request)
+	fmt.Printf("----:%v",s.workChan)//0xc000140000
+	fmt.Printf("----:%v",s.a) //0
+	fmt.Printf("----:%v",&s.a) //0xc0000ae480
+	fmt.Printf("----:%v",s.b) //[]
+*/
+	go func(){
+        //手动开辟内存
+		s.workChan=make(chan  chan engine.Request)
+		s.requestChan=make(chan engine.Request)
+		//创建两个队列用来存request和worker
+		var requestQ []engine.Request //request队列
+		var workerQ [] chan engine.Request
+		//这两个队列的执行机制是这样的 request从队列拿出来然后交给worker队列拿出来的worker，workera需要这个种子才能执行  request->worker
+		//request->worker是个channel操作,因为worker是channel channel的值操作就是输入输出
+	    for{
+			var activeRequest engine.Request
+			var activeWorker chan engine.Request
+			//首选判断两个队列有没有
+			if len(requestQ)>0&&len(workerQ)>0{
+
+				activeRequest=requestQ[0]
+				activeWorker=workerQ[0]
+			}
+			//所有的channel操作都放在select select就是对channel操作的监听
+			//因为一个goroutine有多个channel 独立的channel所以用select来管理
+			select {
+			//有新的request进来,放进去队列
+			case request := <-s.requestChan:
+				requestQ=append(requestQ,request)
+				//有新的worker进来，放进去队列
+			case worker :=<-s.workChan:
+				workerQ=append(workerQ,worker)
+			case activeWorker<-activeRequest:
+				requestQ=requestQ[1:]
+				workerQ=workerQ[1:]
+			}
+		}
+	}()
+
+
+}
+```
